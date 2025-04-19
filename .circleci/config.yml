@@ -10,26 +10,27 @@ jobs:
           name: "Say hello"
           command: "echo Hello, World!"
 
-  setup-ngrok:  # New job for Ngrok setup
+  setup-ngrok:
     docker:
-      - image: ubuntu:20.04
+      - image: ubuntu:20.04  # Ubuntu 20.04 uses "focal"
     environment:
-      NGROK_AUTH_TOKEN: your_token_here  # Use CircleCI env var instead
+      NGROK_AUTH_TOKEN: $NGROK_AUTH_TOKEN  # Set this in CircleCI project settings
     steps:
       - checkout
       - run:
           name: Install Dependencies
           command: |
             apt-get update
-            apt-get install -y curl jq
+            apt-get install -y curl jq sudo  # Fix 2: Added "sudo"
       - run:
-          name: Add Ngrok Repository
+          name: Add Ngrok Repository (Focal)
           command: |
             curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-            echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+            # Fix 3: Changed "buster" to "focal" for Ubuntu 20.04
+            echo "deb https://ngrok-agent.s3.amazonaws.com focal main" | sudo tee /etc/apt/sources.list.d/ngrok.list
       - run:
           name: Install Ngrok
-          command: apt-get update && apt-get install -y ngrok
+          command: sudo apt-get update && sudo apt-get install -y ngrok
       - run:
           name: Authenticate Ngrok
           command: ngrok config add-authtoken "$NGROK_AUTH_TOKEN"
@@ -41,8 +42,4 @@ workflows:
   main-workflow:
     jobs:
       - say-hello
-      - setup-ngrok
-command: |
-  apt-get update
-  apt-get install -y curl jq sudo 
-  
+      - setup-ngrok  # Fix 4: Proper workflow structure

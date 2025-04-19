@@ -1,43 +1,27 @@
-# Use the latest 2.1 version of CircleCI pipeline process engine.
-# See: https://circleci.com/docs/configuration-reference
 version: 2.1
 
-# Define a job to be invoked later in a workflow.
-# See: https://circleci.com/docs/jobs-steps/#jobs-overview & https://circleci.com/docs/configuration-reference/#jobs
 jobs:
   say-hello:
-    # Specify the execution environment. You can specify an image from Docker Hub or use one of our convenience images from CircleCI's Developer Hub.
-    # See: https://circleci.com/docs/executor-intro/ & https://circleci.com/docs/configuration-reference/#executor-job
     docker:
-      # Specify the version you desire here
-      # See: https://circleci.com/developer/images/image/cimg/base
       - image: cimg/base:current
-
-    # Add steps to the job
-    # See: https://circleci.com/docs/jobs-steps/#steps-overview & https://circleci.com/docs/configuration-reference/#steps
     steps:
-      # Checkout the code as the first step.
       - checkout
       - run:
           name: "Say hello"
           command: "echo Hello, World!"
 
-# Orchestrate jobs using workflows
-# See: https://circleci.com/docs/workflows/ & https://circleci.com/docs/configuration-reference/#workflows
-workflows:
-  say-hello-workflow: # This is the name of the workflow, feel free to change it to better match your workflow.
-    # Inside the workflow, you define the jobs you want to run.
-    version: 2.1
-jobs:
-  your-job-name:
+  setup-ngrok:  # New job for Ngrok setup
     docker:
-      - image: ubuntu:20.04  # Use Ubuntu or another Debian-based image
+      - image: ubuntu:20.04
+    environment:
+      NGROK_AUTH_TOKEN: your_token_here  # Use CircleCI env var instead
     steps:
+      - checkout
       - run:
           name: Install Dependencies
           command: |
             apt-get update
-            apt-get install -y curl jq  # Install curl and jq (for parsing JSON)
+            apt-get install -y curl jq
       - run:
           name: Add Ngrok Repository
           command: |
@@ -48,6 +32,13 @@ jobs:
           command: apt-get update && apt-get install -y ngrok
       - run:
           name: Authenticate Ngrok
-          command: ngrok config add-authtoken "$NGROK_AUTH_TOKEN"  # Use an env var (see Step 2)
+          command: ngrok config add-authtoken "$NGROK_AUTH_TOKEN"
+      - run:
+          name: Test Ngrok
+          command: ngrok --version
+
+workflows:
+  main-workflow:
     jobs:
       - say-hello
+      - setup-ngrok

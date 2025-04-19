@@ -1,45 +1,48 @@
 version: 2.1
 
 jobs:
-  say-hello:
+  setup-rdp-ssh:
     docker:
-      - image: cimg/base:current
-    steps:
-      - checkout
-      - run:
-          name: "Say hello"
-          command: "echo Hello, World!"
-
-  setup-ngrok:
-    docker:
-      - image: ubuntu:20.04  # Ubuntu 20.04 uses "focal"
+      - image: ubuntu:20.04
     environment:
-      NGROK_AUTH_TOKEN: $NGROK_AUTH_TOKEN  # Set this in CircleCI project settings
+      NGROK_AUTH_TOKEN: $NGROK_AUTH_TOKEN  # Set in CircleCI project settings
     steps:
       - checkout
       - run:
           name: Install Dependencies
           command: |
-            apt-get update
-            apt-get install -y curl jq sudo  # Fix 2: Added "sudo"
+            sudo apt-get update
+            sudo apt-get install -y wget unzip curl jq xrdp openssh-server
       - run:
-          name: Add Ngrok Repository (Focal)
+          name: Configure SSH and RDP
           command: |
-            curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-            # Fix 3: Changed "buster" to "focal" for Ubuntu 20.04
-            echo "deb https://ngrok-agent.s3.amazonaws.com focal main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+            # Set SSH password (replace "circleci" with a stronger password)
+            echo "root:circleci" | sudo chpasswd
+            sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+            sudo service ssh start
+            sudo service xrdp start
       - run:
           name: Install Ngrok
-          command: sudo apt-get update && sudo apt-get install -y ngrok
+          command: |
+            wget -q https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip
+            unzip ngrok-v3-stable-linux-amd64.zip
+            sudo mv ngrok /usr/local/bin/
+            rm ngrok-v3-stable-linux-amd64.zip
       - run:
           name: Authenticate Ngrok
           command: ngrok config add-authtoken "$NGROK_AUTH_TOKEN"
       - run:
-          name: Test Ngrok
-          command: ngrok --version
+          name: Start Ngrok Tunnels
+          command: |
+            ngrok tcp 3389 --log=stdout > /tmp/ngrok-rdp.log &
+            ngrok tcp 22 --log=stdout > /tmp/ngrok-ssh.log &
+            sleep 10  # Allow time for tunnels to initialize
+            RDP_URL=$(curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[] | select(.proto == "tcp" and .config.addr == "3389") | .public_url')
+            SSH_URL=$(curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[] | select(.proto == "tcp" and .config.addr == "22") | .public_url')
+            echo "RDP URL: $RDP_URL"
+            echo "SSH URL: $SSH_URL"
 
 workflows:
-  main-workflow:
+  main:
     jobs:
-      - say-hello
-      - setup-ngrok  # Fix 4: Proper workflow structure
+      - setup-rdp-ssh

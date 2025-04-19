@@ -1,4 +1,4 @@
-version: 2.1
+
 
 jobs:
   setup-rdp-ssh:
@@ -42,7 +42,7 @@ jobs:
             echo "RDP URL: $RDP_URL"
             echo "SSH URL: $SSH_URL"
 
-version: 2.1
+
 
 jobs:
   build:
